@@ -1,0 +1,28 @@
+# PDF 처리
+PyMuPDF==1.23.8        # 빠른 PDF 파싱
+pdfplumber==0.10.3     # 표 추출
+pypdf==3.17.4          # PDF 조작
+reportlab==4.0.7       # PDF 생성
+
+# AI/ML
+openai==1.12.0         # GPT-4 API
+langchain==0.1.0       # LLM 워크플로우
+
+# 이미지 처리
+Pillow==10.2.0         # 이미지 조작
+opencv-python==4.9.0   # 컴퓨터 비전
+pytesseract==0.3.10    # OCR
+
+# 데이터 처리
+numpy==1.26.3
+pandas==2.0.3
+
+# 유틸리티
+pyyaml==6.0.1
+python-dotenv==1.0.0
+tqdm==4.66.1           # 진행률 표시
+click==8.1.7           # CLI 인터페이스
+
+# 테스트
+pytest==7.4.3
+pytest-cov==4.1.0
