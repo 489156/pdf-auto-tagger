@@ -91,7 +91,10 @@ class PDFAutoTagger:
             logger.info("3/5 XML 태그 매칭 중...")
             tagged_result = self.tagger.match_tags(
                 parsed_data['elements'],
-                structure
+                structure,
+                api_key=openai_api_key,
+                pdf_path=input_pdf,
+                metadata=parsed_data.get("metadata", {})
             )
             
             # 신뢰도 통계
@@ -254,3 +257,4 @@ if __name__ == '__main__':
         main()
     else:
         simple_main()
+
