@@ -14,6 +14,11 @@ tagger:
   confidence_threshold: 0.7
   enable_ai_matching: true
   enable_rule_matching: true
+  enable_alt_text: true
+  alt_text:
+    model: "gpt-4-vision-preview"
+    max_tokens: 300
+    temperature: 0.3
   
 generator:
   page_size: "A4"
@@ -23,3 +28,5 @@ generator:
 validator:
   wcag_level: "AA"
   strict_mode: false
+  external_tool: ""
+
