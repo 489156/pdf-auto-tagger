@@ -1,0 +1,25 @@
+# PDF Auto-Tagger 설정
+
+openai:
+  model: "gpt-4-turbo-preview"
+  max_tokens: 4000
+  temperature: 0.1
+
+parser:
+  extract_images: true
+  extract_tables: true
+  min_font_size: 6
+
+tagger:
+  confidence_threshold: 0.7
+  enable_ai_matching: true
+  enable_rule_matching: true
+  
+generator:
+  page_size: "A4"
+  compress_images: true
+  embed_fonts: true
+
+validator:
+  wcag_level: "AA"
+  strict_mode: false
