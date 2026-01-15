@@ -22,6 +22,10 @@ from src.analyzer.structure_analyzer import StructureAnalyzer
 from src.tagger.tag_matcher import TagMatcher
 from src.generator.pdf_generator import TaggedPDFGenerator
 from src.validator.accessibility_validator import AccessibilityValidator
+from src.taxonomy.ifrs_taxonomy import IFRSTaxonomyManager
+from src.matcher.concept_matcher import ConceptMatcher
+from src.output.output_writer import OutputWriter, ProcessingReport
+from src.utils.preflight import compute_taxonomy_fingerprint
 
 # 로깅 설정
 logging.basicConfig(
@@ -91,7 +95,10 @@ class PDFAutoTagger:
             logger.info("3/5 XML 태그 매칭 중...")
             tagged_result = self.tagger.match_tags(
                 parsed_data['elements'],
-                structure
+                structure,
+                api_key=openai_api_key,
+                pdf_path=input_pdf,
+                metadata=parsed_data.get("metadata", {})
             )
             
             # 신뢰도 통계
@@ -105,8 +112,22 @@ class PDFAutoTagger:
                 avg_confidence = 0.5
             logger.info(f"   평균 신뢰도: {avg_confidence:.2%}")
             
-            # 4. PDF 재생성
-            logger.info("4/5 태그된 PDF 생성 중...")
+            # 4. Taxonomy 매핑
+            taxonomy_root = self.config.get("taxonomy", {}).get("root", "")
+            taxonomy_fingerprint = compute_taxonomy_fingerprint(taxonomy_root) if taxonomy_root else ""
+            mappings = []
+            if taxonomy_root:
+                logger.info("4/6 Taxonomy 로딩 및 Concept 매핑 중...")
+                taxonomy = IFRSTaxonomyManager(taxonomy_root)
+                taxonomy.load()
+                matcher = ConceptMatcher(taxonomy)
+                mappings = matcher.match(parsed_data["elements"])
+                logger.info(f"   매핑 결과: {len(mappings)}개")
+            else:
+                logger.info("4/6 Taxonomy 경로가 설정되지 않아 매핑을 건너뜁니다.")
+
+            # 5. PDF 재생성
+            logger.info("5/6 태그된 PDF 생성 중...")
             generator = TaggedPDFGenerator(output_pdf)
             output_path = generator.generate(
                 input_pdf,
@@ -114,9 +135,9 @@ class PDFAutoTagger:
                 tagged_result['metadata']
             )
             logger.info(f"   출력: {output_path}")
-            
-            # 5. 검증
-            logger.info("5/5 접근성 검증 중...")
+
+            # 6. 검증
+            logger.info("6/6 접근성 검증 중...")
             validation_result = self.validator.validate(output_path)
             
             if validation_result['passed']:
@@ -128,6 +149,24 @@ class PDFAutoTagger:
                 )
             
             # 결과 정리
+            # 출력 파일 생성
+            output_dir = self.config.get("output", {}).get("dir", Path(output_pdf).parent)
+            writer = OutputWriter(str(output_dir))
+            stem = Path(output_pdf).stem
+            writer.archive_mapping(stem)
+            writer.write_structure_xml(parsed_data["elements"], stem)
+            writer.write_mapping_json(mappings, stem)
+            report = ProcessingReport(
+                input_pdf=input_pdf,
+                output_pdf=output_path,
+                mapping_count=len(mappings),
+                errors=[] if validation_result["passed"] else validation_result["issues"],
+                warnings=validation_result["warnings"],
+                taxonomy_root=taxonomy_root,
+                taxonomy_fingerprint=taxonomy_fingerprint
+            )
+            writer.write_report(report, stem)
+
             result = {
                 "status": "success",
                 "input_file": input_pdf,
@@ -135,7 +174,8 @@ class PDFAutoTagger:
                 "pages": parsed_data['pages'],
                 "elements_processed": len(parsed_data['elements']),
                 "average_confidence": avg_confidence,
-                "validation": validation_result
+                "validation": validation_result,
+                "mapping_count": len(mappings)
             }
             
             logger.info("✨ 처리 완료!")
@@ -151,16 +191,38 @@ class PDFAutoTagger:
             if parser:
                 parser.close()
 
+    def process_batch(self, input_dir: str, output_dir: str) -> Dict[str, Any]:
+        """
+        폴더 내 PDF 일괄 처리.
+        """
+        input_path = Path(input_dir)
+        if not input_path.exists():
+            return {"status": "error", "error": f"입력 폴더를 찾을 수 없습니다: {input_dir}"}
+
+        pdf_files = sorted(input_path.glob("*.pdf"))
+        results = []
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+        for pdf in pdf_files:
+            output_pdf = output_path / f"{pdf.stem}_tagged.pdf"
+            result = self.process(str(pdf), str(output_pdf))
+            results.append(result)
+
+        writer = OutputWriter(str(output_path))
+        writer.write_batch_report(results)
+        return {"status": "success", "processed": len(results), "results": results}
+
 
 def simple_main():
     """간단한 CLI 인터페이스 (Click 없이)"""
     if len(sys.argv) < 3:
         print("사용법: python -m src.main <input_pdf> <output_pdf>")
+        print("       python -m src.main <input_dir> <output_dir>")
         print("환경변수 OPENAI_API_KEY를 설정하거나 --api-key 옵션을 사용하세요.")
         sys.exit(1)
     
-    input_pdf = sys.argv[1]
-    output_pdf = sys.argv[2]
+    input_path = sys.argv[1]
+    output_path = sys.argv[2]
     
     # API 키 확인
     api_key = os.getenv("OPENAI_API_KEY")
@@ -170,14 +232,20 @@ def simple_main():
     
     # 처리
     tagger = PDFAutoTagger(api_key)
-    result = tagger.process(input_pdf, output_pdf)
+    if Path(input_path).is_dir():
+        result = tagger.process_batch(input_path, output_path)
+    else:
+        result = tagger.process(input_path, output_path)
     
     # 결과 출력
     if result['status'] == 'success':
         print(f"\n✅ 성공!")
-        print(f"입력: {result['input_file']}")
-        print(f"출력: {result['output_file']}")
-        print(f"페이지: {result['pages']}개")
+        if "input_file" in result:
+            print(f"입력: {result['input_file']}")
+            print(f"출력: {result['output_file']}")
+            print(f"페이지: {result['pages']}개")
+        else:
+            print(f"처리 파일 수: {result.get('processed', 0)}개")
     else:
         print(f"\n❌ 실패: {result.get('error', 'Unknown error')}")
         sys.exit(1)
@@ -186,8 +254,8 @@ def simple_main():
 # Click 명령 정의 (Click이 있는 경우)
 if HAS_CLICK:
     @click.command()
-    @click.argument('input_pdf', type=click.Path(exists=True))
-    @click.argument('output_pdf', type=click.Path())
+    @click.argument('input_path', type=click.Path(exists=True))
+    @click.argument('output_path', type=click.Path())
     @click.option(
         '--api-key',
         envvar='OPENAI_API_KEY',
@@ -204,7 +272,7 @@ if HAS_CLICK:
         is_flag=True,
         help='상세 로그 출력'
     )
-    def main(input_pdf, output_pdf, api_key, config, verbose):
+    def main(input_path, output_path, api_key, config, verbose):
         """PDF 자동 태깅 도구"""
         if verbose:
             logging.getLogger().setLevel(logging.DEBUG)
@@ -221,24 +289,31 @@ if HAS_CLICK:
         
         # 처리
         tagger = PDFAutoTagger(api_key, config_dict)
-        result = tagger.process(input_pdf, output_pdf)
+        if Path(input_path).is_dir():
+            result = tagger.process_batch(input_path, output_path)
+        else:
+            result = tagger.process(input_path, output_path)
         
         # 결과 출력
         if result['status'] == 'success':
             click.echo(f"\n✅ 성공!")
-            click.echo(f"입력: {result['input_file']}")
-            click.echo(f"출력: {result['output_file']}")
-            click.echo(f"페이지: {result['pages']}개")
-            click.echo(f"처리된 요소: {result['elements_processed']}개")
-            click.echo(f"평균 신뢰도: {result['average_confidence']:.1%}")
-            
-            validation = result['validation']
-            if validation['passed']:
-                click.echo(f"\n접근성 검증: ✅ 통과 (점수: {validation['score']:.1f})")
+            if "input_file" in result:
+                click.echo(f"입력: {result['input_file']}")
+                click.echo(f"출력: {result['output_file']}")
+                click.echo(f"페이지: {result['pages']}개")
+                click.echo(f"처리된 요소: {result['elements_processed']}개")
+                click.echo(f"평균 신뢰도: {result['average_confidence']:.1%}")
             else:
-                click.echo(f"\n접근성 검증: ⚠️ {len(validation['issues'])}개 문제")
-                for issue in validation['issues']:
-                    click.echo(f"  - {issue}")
+                click.echo(f"처리 파일 수: {result.get('processed', 0)}개")
+            
+            validation = result.get('validation')
+            if validation:
+                if validation['passed']:
+                    click.echo(f"\n접근성 검증: ✅ 통과 (점수: {validation['score']:.1f})")
+                else:
+                    click.echo(f"\n접근성 검증: ⚠️ {len(validation['issues'])}개 문제")
+                    for issue in validation['issues']:
+                        click.echo(f"  - {issue}")
         else:
             click.echo(f"\n❌ 실패: {result.get('error', 'Unknown error')}", err=True)
             sys.exit(1)

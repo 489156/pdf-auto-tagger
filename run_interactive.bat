@@ -36,8 +36,17 @@ REM 의존성 설치 확인
 python -c "import PyMuPDF" >nul 2>&1
 if errorlevel 1 (
     echo [설정] 필요한 패키지 설치 중... (처음 실행 시 시간이 걸릴 수 있습니다)
-    pip install --upgrade pip
+    pip install --upgrade pip setuptools wheel
     pip install -r requirements.txt
+    if errorlevel 1 (
+        echo [경고] 기본 설치 실패, 빌드 격리 없이 재시도합니다...
+        pip install -r requirements.txt --no-build-isolation
+        if errorlevel 1 (
+            echo [오류] 패키지 설치 실패
+            pause
+            exit /b 1
+        )
+    )
 )
 
 REM 개발 모드 설치
@@ -59,23 +68,38 @@ echo.
 echo ================================================
 echo  파일 선택
 echo ================================================
-set /p INPUT_FILE="입력 PDF 파일 경로를 입력하세요: "
+set /p INPUT_FILE="입력 PDF 파일 또는 폴더 경로를 입력하세요: "
 if "!INPUT_FILE!"=="" (
     echo [오류] 입력 파일이 지정되지 않았습니다.
     pause
     exit /b 1
 )
 
-if not exist "!INPUT_FILE!" (
-    echo [오류] 파일을 찾을 수 없습니다: !INPUT_FILE!
-    pause
-    exit /b 1
+if exist "!INPUT_FILE!\NUL" (
+    set IS_DIR=1
+) else (
+    set IS_DIR=0
+    if not exist "!INPUT_FILE!" (
+        echo [오류] 파일을 찾을 수 없습니다: !INPUT_FILE!
+        pause
+        exit /b 1
+    )
 )
 
 echo.
-set /p OUTPUT_FILE="출력 PDF 파일 경로 (Enter로 기본값 사용): "
-if "!OUTPUT_FILE!"=="" (
-    for %%F in ("!INPUT_FILE!") do set OUTPUT_FILE=%%~dpnF_tagged.pdf
+if "!IS_DIR!"=="1" (
+    set /p OUTPUT_FILE="출력 폴더 경로 (Enter로 기본값 사용): "
+    if "!OUTPUT_FILE!"=="" (
+        set OUTPUT_FILE=outputs
+    )
+    if not exist "!OUTPUT_FILE!" (
+        mkdir "!OUTPUT_FILE!"
+    )
+) else (
+    set /p OUTPUT_FILE="출력 PDF 파일 경로 (Enter로 기본값 사용): "
+    if "!OUTPUT_FILE!"=="" (
+        for %%F in ("!INPUT_FILE!") do set OUTPUT_FILE=%%~dpnF_tagged.pdf
+    )
 )
 
 echo.
@@ -83,7 +107,7 @@ echo ================================================
 echo  처리 시작
 echo ================================================
 echo 입력 파일: !INPUT_FILE!
-echo 출력 파일: !OUTPUT_FILE!
+echo 출력 경로: !OUTPUT_FILE!
 echo.
 
 REM 실행

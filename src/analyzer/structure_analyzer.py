@@ -135,8 +135,9 @@ JSON 형식으로만 응답하세요:
             is_bold = bool(flags & 16)  # PyMuPDF bold flag
             bbox = elem.get("bbox", [0, 0, 0, 0])
             page = elem.get("page", 0)
+            element_id = elem.get("element_id", f"element_{idx}")
             
-            elements_text.append(f"""Element {idx}:
+            elements_text.append(f"""Element {element_id}:
 - Type: {elem_type}
 - Text: {content}
 - Font size: {font_size}pt
@@ -206,7 +207,10 @@ JSON 형식으로만 응답하세요:
                 result["hierarchy"] = {}
             
             if "reading_order" not in result:
-                result["reading_order"] = [f"element_{i}" for i in range(min(len(elements), 50))]
+                result["reading_order"] = [
+                    elements[i].get("element_id", f"element_{i}")
+                    for i in range(min(len(elements), 50))
+                ]
             
             return result
             
@@ -230,7 +234,7 @@ JSON 형식으로만 응답하세요:
         h1_found = False
         
         for idx, elem in enumerate(elements):
-            elem_id = f"element_{idx}"
+            elem_id = elem.get("element_id", f"element_{idx}")
             reading_order.append(elem_id)
             
             elem_type = elem.get("type", "text")

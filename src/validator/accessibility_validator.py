@@ -4,7 +4,9 @@
 생성된 PDF의 접근성을 검증하는 클래스
 """
 
+import json
 import logging
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from pypdf import PdfReader
@@ -27,6 +29,7 @@ class AccessibilityValidator:
         self.config = config or {}
         self.wcag_level = self.config.get("wcag_level", "AA")
         self.strict_mode = self.config.get("strict_mode", False)
+        self.external_tool = self.config.get("external_tool", "")
     
     def validate(self, pdf_path: str) -> Dict[str, Any]:
         """
@@ -88,6 +91,16 @@ class AccessibilityValidator:
             if not alt_text_result["passed"]:
                 warnings.extend(alt_text_result["issues"])
                 score -= 10.0
+
+            # 6. 외부 검증 도구 연동 (선택)
+            external_result = self._run_external_validator(pdf_path)
+            if external_result["issues"]:
+                if self.strict_mode:
+                    issues.extend(external_result["issues"])
+                else:
+                    warnings.extend(external_result["issues"])
+            if external_result.get("details"):
+                warnings.extend(external_result["details"])
             
             score = max(score, 0.0)
             
@@ -222,6 +235,9 @@ class AccessibilityValidator:
                     result["passed"] = True
                 else:
                     result["issues"].append("구조 트리(StructTreeRoot) 없음")
+                mark_info = root.get("/MarkInfo", {})
+                if not isinstance(mark_info, dict) or not mark_info.get("/Marked", False):
+                    result["issues"].append("Marked PDF 플래그 없음")
         except Exception as e:
             result["issues"].append(f"구조 트리 확인 실패: {e}")
         
@@ -270,6 +286,48 @@ class AccessibilityValidator:
         # 현재는 기본 통과로 처리
         result["has_alt_text"] = True  # 추정
         
+        return result
+
+    def _run_external_validator(self, pdf_path: str) -> Dict[str, Any]:
+        """
+        외부 접근성 검증 도구 실행 (선택).
+
+        지원: veraPDF (external_tool=verapdf)
+        """
+        result = {"issues": [], "details": []}
+        tool = (self.external_tool or "").lower()
+        if not tool:
+            return result
+
+        if tool == "verapdf":
+            try:
+                completed = subprocess.run(
+                    ["verapdf", "--format", "json", pdf_path],
+                    check=False,
+                    capture_output=True,
+                    text=True
+                )
+                if completed.returncode != 0:
+                    result["issues"].append("veraPDF 실행 실패 또는 비정상 종료")
+                    return result
+                payload = json.loads(completed.stdout or "{}")
+                validation = payload.get("validationResult", {})
+                violations = validation.get("details", []) or []
+                if violations:
+                    result["issues"].append(f"veraPDF 위반 항목 {len(violations)}개")
+                    result["details"] = [
+                        v.get("message", "검증 메시지 없음")
+                        for v in violations[:10]
+                    ]
+            except FileNotFoundError:
+                result["issues"].append("veraPDF 실행 파일을 찾을 수 없음 (설치 필요)")
+            except json.JSONDecodeError:
+                result["issues"].append("veraPDF 결과 파싱 실패")
+            except Exception as exc:
+                result["issues"].append(f"veraPDF 검증 오류: {exc}")
+        else:
+            result["issues"].append(f"지원되지 않는 외부 검증 도구: {tool}")
+
         return result
     
     def calculate_ai_friendliness_score(self, pdf_path: str) -> float:

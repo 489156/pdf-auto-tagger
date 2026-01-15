@@ -48,16 +48,20 @@ call venv\Scripts\activate.bat
 
 echo.
 echo [설정] pip 업그레이드 중...
-python -m pip install --upgrade pip
+python -m pip install --upgrade pip setuptools wheel
 
 echo.
 echo [설정] 필요한 패키지 설치 중...
 echo (시간이 걸릴 수 있습니다...)
 pip install -r requirements.txt
 if errorlevel 1 (
-    echo [오류] 패키지 설치 실패
-    pause
-    exit /b 1
+    echo [경고] 기본 설치 실패, 빌드 격리 없이 재시도합니다...
+    pip install -r requirements.txt --no-build-isolation
+    if errorlevel 1 (
+        echo [오류] 패키지 설치 실패
+        pause
+        exit /b 1
+    )
 )
 
 echo.

@@ -6,6 +6,7 @@ GPT-4 Vision을 활용한 이미지 대체 텍스트 생성
 
 import logging
 import base64
+import time
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from openai import OpenAI
@@ -25,7 +26,9 @@ class AltTextGenerator:
         api_key: str,
         model: str = "gpt-4-vision-preview",
         max_tokens: int = 300,
-        temperature: float = 0.3
+        temperature: float = 0.3,
+        max_retries: int = 2,
+        backoff_base: float = 1.5
     ):
         """
         Args:
@@ -38,6 +41,8 @@ class AltTextGenerator:
         self.model = model
         self.max_tokens = max_tokens
         self.temperature = temperature
+        self.max_retries = max_retries
+        self.backoff_base = backoff_base
     
     def generate_alt_text(
         self,
@@ -255,40 +260,45 @@ WCAG 2.1 AA 기준에 맞는 Alt 텍스트를 생성하세요.
         Returns:
             생성된 Alt 텍스트
         """
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "당신은 접근성 전문가입니다. WCAG 2.1 AA 기준에 맞는 Alt 텍스트를 생성하세요."
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": prompt
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": image_base64
+        for attempt in range(self.max_retries + 1):
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "당신은 접근성 전문가입니다. WCAG 2.1 AA 기준에 맞는 Alt 텍스트를 생성하세요."
+                        },
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": prompt
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": image_base64
+                                    }
                                 }
-                            }
-                        ]
-                    }
-                ],
-                max_tokens=self.max_tokens,
-                temperature=self.temperature
-            )
-            
-            alt_text = response.choices[0].message.content.strip()
-            return alt_text
-            
-        except Exception as e:
-            logger.error(f"GPT-4 Vision API 호출 실패: {e}")
-            raise
+                            ]
+                        }
+                    ],
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature
+                )
+                
+                alt_text = response.choices[0].message.content.strip()
+                return alt_text
+                
+            except Exception as e:
+                if attempt >= self.max_retries:
+                    logger.error(f"GPT-4 Vision API 호출 실패: {e}")
+                    raise
+                wait_time = self.backoff_base ** attempt
+                logger.warning(f"GPT-4 Vision API 호출 실패, {wait_time:.1f}초 후 재시도: {e}")
+                time.sleep(wait_time)
     
     def _postprocess_alt_text(self, alt_text: str) -> str:
         """

@@ -24,6 +24,12 @@
 
 > 📖 자세한 사용법: [사용자_가이드.md](사용자_가이드.md) 또는 [README_사용자.md](README_사용자.md)
 
+### Linux/macOS 사용자
+
+1. `chmod +x setup.sh run.sh`
+2. `./setup.sh`
+3. `./run.sh input.pdf output.pdf`
+
 ### 개발자용 설치
 
 ```bash
@@ -64,6 +70,33 @@ with PDFParser("input.pdf") as parser:
     print(f"페이지 수: {result['pages']}")
 ```
 
+### ESG Taxonomy 매핑 사용 (선택)
+
+```bash
+python -m src.main input.pdf output_tagged.pdf --config config/config.yaml
+```
+
+### 폴더 배치 처리 (선택)
+
+```bash
+python -m src.main /path/to/pdf_folder /path/to/output_dir
+```
+
+출력 경로를 생략하면 `outputs` 폴더가 생성됩니다.
+
+### ESG 배치 자동화 실행 (taxonomy 업데이트/검증/차이 리포트)
+
+```bash
+python scripts/esg_batch.py /path/to/pdf_folder /path/to/output_dir --config config/config.yaml --api-key "$OPENAI_API_KEY"
+```
+
+taxonomy 업데이트를 사용할 경우 `taxonomy.url`과 `taxonomy.checksum_sha256`를 함께 설정하면
+다운로드 무결성 검증과 버전 기록(`taxonomy_version.json`)이 생성됩니다.
+또한 `summary_report.json`으로 taxonomy 변경 감지 및 매핑 diff 요약이 제공됩니다.
+
+`config/config.yaml`의 `taxonomy.root`에 IFRS/ISSB taxonomy 패키지 경로를 지정하면
+`{stem}_mapping.json`과 `{stem}_structure.xml` 및 `processing_report.json`이 함께 생성됩니다.
+
 ## 📁 프로젝트 구조
 
 ```
@@ -73,6 +106,9 @@ pdf-auto-tagger/
 │   │   ├── pdf_parser.py
 │   │   └── content_extractor.py
 │   ├── analyzer/         # AI 분석
+│   ├── taxonomy/         # XBRL taxonomy 로딩
+│   ├── matcher/          # Concept 매핑
+│   ├── output/           # 결과 출력 (XML/JSON/리포트)
 │   ├── tagger/          # 태그 매칭
 │   ├── generator/       # PDF 재생성
 │   └── validator/       # 검증
@@ -104,9 +140,10 @@ pdf-auto-tagger/
 - ✅ 접근성 검증 구현
 - ✅ 메인 파이프라인 구현
 - ✅ Alt 텍스트 자동 생성 모듈 구현 (v0.2.0)
-- ⏳ 구조 트리(StructTreeRoot) 생성 고도화 (진행 중)
+- ✅ Alt 텍스트 자동 생성 파이프라인 통합 (v0.3.0)
+- ⏳ 구조 트리(StructTreeRoot) 생성 고도화 (기본 구조 연결 완료)
 - ⏳ 태그 매칭 정확도 개선 (진행 중)
-- ⏳ 접근성 검증 고도화 (예정)
+- ⏳ 접근성 검증 고도화 (외부 도구 연동 옵션 추가)
 - ⏳ E2E 테스트 체계 구축 (예정)
 
 ## 🧪 테스트

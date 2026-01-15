@@ -253,7 +253,8 @@ class PDFParser:
                         "type": "text",
                         "bbox": bbox,
                         "content": " ".join(block_text),
-                        "font_info": main_font
+                        "font_info": main_font,
+                        "element_id": f"page_{page_num}_text_{len(blocks)}"
                     })
         
         except Exception as e:
@@ -304,7 +305,8 @@ class PDFParser:
                     "xref": img[0],  # 이미지 xref 번호
                     "width": image_rects.width,
                     "height": image_rects.height,
-                    "font_info": {}  # 이미지는 폰트 정보 없음
+                    "font_info": {},  # 이미지는 폰트 정보 없음
+                    "element_id": f"page_{page_num}_image_{img_index}"
                 })
         
         except Exception as e:
@@ -372,7 +374,8 @@ class PDFParser:
                                 "data": table_data,
                                 "rows": len(table_data),
                                 "cols": len(table_data[0]) if table_data else 0,
-                                "font_info": {}  # 표는 폰트 정보 별도 처리 필요
+                                "font_info": {},  # 표는 폰트 정보 별도 처리 필요
+                                "element_id": f"page_{page_num}_table_{len(tables)}"
                             })
         
         except Exception as e:

@@ -43,12 +43,16 @@ REM 의존성 설치 확인
 python -c "import PyMuPDF" >nul 2>&1
 if errorlevel 1 (
     echo [설정] 필요한 패키지 설치 중... (처음 실행 시 시간이 걸릴 수 있습니다)
-    pip install --upgrade pip
+    pip install --upgrade pip setuptools wheel
     pip install -r requirements.txt
     if errorlevel 1 (
-        echo [오류] 패키지 설치 실패
-        pause
-        exit /b 1
+        echo [경고] 기본 설치 실패, 빌드 격리 없이 재시도합니다...
+        pip install -r requirements.txt --no-build-isolation
+        if errorlevel 1 (
+            echo [오류] 패키지 설치 실패
+            pause
+            exit /b 1
+        )
     )
 )
 
@@ -98,11 +102,21 @@ if "%2"=="" (
     set OUTPUT_FILE=%2
 )
 
-REM 파일 존재 확인
-if not exist "%INPUT_FILE%" (
-    echo [오류] 입력 파일을 찾을 수 없습니다: %INPUT_FILE%
-    pause
-    exit /b 1
+REM 파일/폴더 존재 확인
+if exist "%INPUT_FILE%\NUL" (
+    if "%2"=="" (
+        set OUTPUT_FILE=outputs
+        echo [알림] 출력 폴더를 지정하지 않았습니다. 기본값 사용: %OUTPUT_FILE%
+    )
+    if not exist "%OUTPUT_FILE%" (
+        mkdir "%OUTPUT_FILE%"
+    )
+) else (
+    if not exist "%INPUT_FILE%" (
+        echo [오류] 입력 파일을 찾을 수 없습니다: %INPUT_FILE%
+        pause
+        exit /b 1
+    )
 )
 
 echo.
@@ -110,7 +124,7 @@ echo ================================================
 echo  처리 시작
 echo ================================================
 echo 입력 파일: %INPUT_FILE%
-echo 출력 파일: %OUTPUT_FILE%
+echo 출력 경로: %OUTPUT_FILE%
 echo.
 
 REM 실행

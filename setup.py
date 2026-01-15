@@ -47,6 +47,7 @@ setup(
     entry_points={
         "console_scripts": [
             "pdf-tagger=src.main:main",
+            "esg-batch=scripts.esg_batch:main",
         ],
     },
     classifiers=[

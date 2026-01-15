@@ -8,7 +8,7 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import DictionaryObject, ArrayObject, NameObject, NumberObject, TextStringObject
+from pypdf.generic import DictionaryObject, ArrayObject, NameObject, NumberObject, TextStringObject, BooleanObject
 from pypdf.constants import CatalogAttributes
 
 logger = logging.getLogger(__name__)
@@ -61,9 +61,7 @@ class TaggedPDFGenerator:
             self._set_metadata(writer, metadata)
             
             # 구조 트리 생성 (기본 구조)
-            # Note: PyPDF의 구조 트리 기능은 제한적이므로,
-            # 실제 구현에서는 PDF/UA를 위한 완전한 구조 트리가 필요합니다.
-            # 현재는 메타데이터와 태그 정보만 추가합니다.
+            self._attach_structure_tree(writer, tagged_elements)
             
             # PDF/UA 준수 확인
             self._ensure_pdfua_compliance(writer, metadata)
@@ -72,8 +70,8 @@ class TaggedPDFGenerator:
             with open(self.output_path, "wb") as output_file:
                 writer.write(output_file)
             
-            logger.info(f"태그된 PDF 생성 완료: {self.output_path}")
-            return str(self.output_path)
+        logger.info(f"태그된 PDF 생성 완료: {self.output_path}")
+        return str(self.output_path)
             
         except Exception as e:
             logger.error(f"태그된 PDF 생성 실패: {e}", exc_info=True)
@@ -106,8 +104,8 @@ class TaggedPDFGenerator:
         logger.debug(f"메타데이터 설정 완료: Title={title}, Language={language}")
     
     def _ensure_pdfua_compliance(
-        self,
-        writer: PdfWriter,
+        self, 
+        writer: PdfWriter, 
         metadata: Dict[str, Any]
     ) -> None:
         """
@@ -121,13 +119,15 @@ class TaggedPDFGenerator:
         # Note: PyPDF는 구조 트리 생성 기능이 제한적이므로,
         # 완전한 PDF/UA 준수를 위해서는 추가 라이브러리나 수동 구현이 필요합니다.
         
-        # Marked PDF 플래그는 실제 구조 트리 생성 시 설정됩니다.
-        # 현재는 메타데이터만 설정합니다.
+        # Marked PDF 플래그 설정
+        if "/MarkInfo" not in writer._root_object:
+            writer._root_object[NameObject("/MarkInfo")] = DictionaryObject()
+        writer._root_object["/MarkInfo"][NameObject("/Marked")] = BooleanObject(True)
         
         logger.debug("PDF/UA 준수 확인 완료 (기본 메타데이터 설정)")
     
     def _create_structure_tree(
-        self,
+        self, 
         tagged_elements: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """
@@ -185,6 +185,33 @@ class TaggedPDFGenerator:
                     })
         
         return root
+
+    def _attach_structure_tree(
+        self,
+        writer: PdfWriter,
+        tagged_elements: List[Dict[str, Any]]
+    ) -> None:
+        """
+        PDF Catalog에 기본 StructTreeRoot를 연결.
+
+        Note: 실제 PDF/UA 수준의 구조 트리 및 MCID 매핑은 추가 구현이 필요합니다.
+        """
+        struct_tree_root = DictionaryObject()
+        struct_tree_root.update({
+            NameObject("/Type"): NameObject("/StructTreeRoot"),
+            NameObject("/K"): ArrayObject(),
+            NameObject("/ParentTree"): DictionaryObject(),
+            NameObject("/RoleMap"): DictionaryObject({
+                NameObject("/H1"): NameObject("/H1"),
+                NameObject("/H2"): NameObject("/H2"),
+                NameObject("/H3"): NameObject("/H3"),
+                NameObject("/P"): NameObject("/P"),
+                NameObject("/Figure"): NameObject("/Figure"),
+                NameObject("/Table"): NameObject("/Table")
+            })
+        })
+
+        writer._root_object[NameObject("/StructTreeRoot")] = struct_tree_root
     
     def _optimize_reading_order(
         self,

@@ -6,7 +6,8 @@
 
 import logging
 from typing import Dict, List, Any, Optional, Tuple
-from openai import OpenAI
+
+from .alt_text_generator import AltTextGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -60,11 +61,17 @@ class TagMatcher:
         self.confidence_threshold = self.config.get("confidence_threshold", 0.7)
         self.enable_ai_matching = self.config.get("enable_ai_matching", True)
         self.enable_rule_matching = self.config.get("enable_rule_matching", True)
+        self.enable_alt_text = self.config.get("enable_alt_text", True)
+        self.alt_text_config = self.config.get("alt_text", {})
+        self.alt_text_max_images = self.alt_text_config.get("max_images", 10)
     
     def match_tags(
         self,
         elements: List[Dict[str, Any]],
-        structure: Dict[str, Any]
+        structure: Dict[str, Any],
+        api_key: Optional[str] = None,
+        pdf_path: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         요소들에 XML 태그 매칭
@@ -101,9 +108,24 @@ class TagMatcher:
         # 제목 추출 (메타데이터용)
         title = self._extract_title(elements, hierarchy)
         
+        # Alt 텍스트 생성기 준비
+        alt_text_generator = None
+        if self.enable_alt_text and api_key:
+            alt_text_generator = AltTextGenerator(
+                api_key=api_key,
+                model=self.alt_text_config.get("model", "gpt-4-vision-preview"),
+                max_tokens=self.alt_text_config.get("max_tokens", 300),
+                temperature=self.alt_text_config.get("temperature", 0.3),
+                max_retries=self.alt_text_config.get("max_retries", 2),
+                backoff_base=self.alt_text_config.get("backoff_base", 1.5)
+            )
+
+        alt_text_cache: Dict[str, str] = {}
+        alt_text_count = 0
+
         # 요소별 태그 매칭
         for idx, elem in enumerate(elements):
-            elem_id = f"element_{idx}"
+            elem_id = elem.get("element_id", f"element_{idx}")
             
             # 구조 분석 결과에서 태그 가져오기
             if elem_id in hierarchy:
@@ -124,6 +146,22 @@ class TagMatcher:
             
             # 태그 속성 생성
             attributes = self._generate_attributes(final_tag, level, elem)
+
+            # 이미지 요소의 Alt 텍스트 생성
+            if elem.get("type") == "image" and alt_text_generator:
+                cache_key = f"{elem.get('xref', '')}:{elem.get('image_index', '')}"
+                if cache_key in alt_text_cache:
+                    attributes["alt"] = alt_text_cache[cache_key]
+                elif alt_text_count < self.alt_text_max_images:
+                    alt_text = alt_text_generator.generate_alt_text(
+                        image_element={**elem, "id": elem_id},
+                        context=elements,
+                        pdf_path=pdf_path,
+                        metadata=metadata or {}
+                    )
+                    alt_text_cache[cache_key] = alt_text
+                    attributes["alt"] = alt_text
+                    alt_text_count += 1
             
             tagged_elements.append({
                 "id": elem_id,
@@ -340,7 +378,7 @@ class TagMatcher:
         """
         # H1 태그된 요소 찾기
         for idx, elem in enumerate(elements):
-            elem_id = f"element_{idx}"
+            elem_id = elem.get("element_id", f"element_{idx}")
             if elem_id in hierarchy:
                 if hierarchy[elem_id].get("tag") == "H1":
                     return elem.get("content", "")[:200]  # 최대 200자
@@ -351,42 +389,6 @@ class TagMatcher:
         
         return ""
     
-    def generate_alt_text(
-        self,
-        image_element: Dict[str, Any],
-        context: List[Dict[str, Any]],
-        api_key: Optional[str] = None,
-        pdf_path: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """
-        이미지 대체 텍스트 생성 (GPT-4 Vision 사용)
-        
-        Args:
-            image_element: 이미지 요소
-            context: 주변 문맥 요소들
-            api_key: OpenAI API 키 (선택)
-            pdf_path: PDF 파일 경로 (이미지 추출용)
-            metadata: 문서 메타데이터
-            
-        Returns:
-            대체 텍스트
-        """
-        if api_key:
-            try:
-                from .alt_text_generator import AltTextGenerator
-                generator = AltTextGenerator(api_key=api_key)
-                return generator.generate_alt_text(
-                    image_element=image_element,
-                    context=context,
-                    pdf_path=pdf_path,
-                    metadata=metadata
-                )
-            except Exception as e:
-                logger.warning(f"Alt 텍스트 생성 실패, 기본값 사용: {e}")
-        
-        # Fallback: 기본값
-        return "이미지"
     
     def calculate_confidence(
         self,

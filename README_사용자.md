@@ -45,6 +45,21 @@
    run.bat "입력파일.pdf" "출력파일.pdf"
    ```
 
+#### 폴더 배치 처리 (선택)
+
+```
+run.bat "입력폴더" "출력폴더"
+```
+출력 폴더를 생략하면 `outputs` 폴더가 생성됩니다.
+
+#### ESG 배치 자동화 (선택)
+
+```
+python scripts/esg_batch.py "입력폴더" "출력폴더" --config config/config.yaml --api-key "OPENAI_API_KEY"
+```
+taxonomy 업데이트 사용 시 `taxonomy.url`과 `taxonomy.checksum_sha256`를 함께 설정하면 무결성 검증과 버전 기록이 추가됩니다.
+`summary_report.json`으로 taxonomy 변경 감지 및 매핑 diff 요약이 제공됩니다.
+
 ---
 
 ## 📋 파일 설명
@@ -54,7 +69,31 @@
 | `setup.bat` | 초기 설정 (최초 1회만 실행) |
 | `run_interactive.bat` | 대화형 실행 (추천) |
 | `run.bat` | 명령줄 실행 |
+| `setup.sh` | Linux/macOS 초기 설정 |
+| `run.sh` | Linux/macOS 실행 |
 | `사용자_가이드.md` | 상세 사용 설명서 |
+
+---
+
+## 🧭 배치 파일 실행 가이드 (핵심 요약)
+
+### 1) 최초 1회 준비: setup.bat
+1. `setup.bat`를 더블클릭
+2. 가상환경/필수 패키지 설치 완료까지 대기
+3. 완료 메시지 확인
+
+### 2) 가장 쉬운 실행: run_interactive.bat
+1. `run_interactive.bat` 더블클릭
+2. OpenAI API 키 입력
+3. 입력 PDF 경로 입력 (드래그 & 드롭 가능)
+4. 출력 파일 경로 입력 (Enter 시 기본값)
+5. 완료 메시지 확인
+
+### 3) 명령줄 실행: run.bat
+```bash
+run.bat "입력파일.pdf" "출력파일.pdf"
+```
+출력 파일을 생략하면 자동으로 `_tagged.pdf`가 붙습니다.
 
 ---
 
