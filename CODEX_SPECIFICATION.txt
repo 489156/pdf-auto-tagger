@@ -1,0 +1,1375 @@
+# ESG-PDF-AUTO-TAGGER-SYSTEM-SPEC.txt
+
+```txt
+================================================================================
+PROJECT: AI-Powered ESG PDF Auto-Tagging System
+VERSION: 1.0.0
+TARGET: OpenAI Codex
+LANGUAGE: Python 3.10+
+================================================================================
+
+## PROJECT OVERVIEW
+================================================================================
+Auto-tag generic PDFs with XML/XBRL tags for:
+- WCAG 2.1 AA accessibility compliance
+- ESG framework mapping (GRI, IFRS S1/S2, TCFD, SASB, ESRS)
+- AI-friendly structured data extraction
+- Multi-format output generation
+
+INPUT: Generic PDF (ESG sustainability reports, business reports)
+OUTPUT: 7 files (tagged PDF, XBRL, JSON, Excel, HTML reports, dashboard)
+
+PROCESSING TIME: ~5 minutes for 120-page PDF
+ACCURACY TARGET: 
+- Title recognition: 95%+
+- Tag matching: 90%+
+- ESG indicator detection: 90%+
+- Data extraction: 95%+
+
+## TECHNOLOGY STACK
+================================================================================
+Core:
+- Python 3.10+
+- PyMuPDF (fitz) 1.23.8      # PDF parsing
+- pdfplumber 0.10.3          # Table extraction
+- pypdf 3.17.4               # PDF manipulation
+- reportlab 4.0.7            # PDF generation
+
+AI/ML:
+- openai 1.12.0              # GPT-4 Turbo for structure analysis
+- langchain 0.1.0            # LLM orchestration
+
+Image Processing:
+- Pillow 10.2.0
+- opencv-python 4.9.0
+- pytesseract 0.3.10         # OCR
+
+Data:
+- pandas 2.2.0
+- openpyxl 3.1.2             # Excel generation
+- lxml 4.9.3                 # XML/XBRL processing
+
+Web:
+- flask 3.0.0                # Optional web interface
+- click 8.1.0                # CLI
+
+## DIRECTORY STRUCTURE
+================================================================================
+esg-pdf-auto-tagger/
+├── src/
+│   ├── __init__.py
+│   ├── parser/
+│   │   ├── __init__.py
+│   │   ├── pdf_parser.py           # PyMuPDF-based PDF parsing
+│   │   └── content_extractor.py    # Text/image/table extraction
+│   ├── analyzer/
+│   │   ├── __init__.py
+│   │   ├── structure_analyzer.py   # GPT-4 structure analysis
+│   │   └── esg_analyzer.py         # ESG indicator detection
+│   ├── mapper/
+│   │   ├── __init__.py
+│   │   ├── framework_mapper.py     # Map to GRI/IFRS/TCFD/SASB/ESRS
+│   │   ├── xbrl_tagger.py          # XBRL taxonomy tagging
+│   │   └── data_extractor.py       # Extract quantitative ESG data
+│   ├── knowledge/
+│   │   ├── __init__.py
+│   │   ├── gri_standards.py        # GRI Universal Standards database
+│   │   ├── ifrs_standards.py       # IFRS S1/S2 requirements
+│   │   ├── xbrl_taxonomy.py        # XBRL taxonomy definitions
+│   │   └── frameworks.json         # All framework definitions
+│   ├── validator/
+│   │   ├── __init__.py
+│   │   ├── accessibility_validator.py  # WCAG 2.1 AA validation
+│   │   ├── esg_data_validator.py       # ESG data consistency check
+│   │   └── xbrl_validator.py           # XBRL schema validation
+│   ├── generator/
+│   │   ├── __init__.py
+│   │   ├── pdf_generator.py        # Tagged PDF generation
+│   │   ├── xbrl_generator.py       # XBRL instance document
+│   │   ├── json_generator.py       # Structured JSON data
+│   │   ├── excel_generator.py      # GRI index Excel
+│   │   ├── html_generator.py       # Gap analysis & dashboard
+│   │   └── report_generator.py     # Unified output orchestration
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── logger.py
+│   │   ├── config.py
+│   │   └── cache.py
+│   └── main.py                     # Main pipeline & CLI
+├── tests/
+│   ├── test_parser.py
+│   ├── test_analyzer.py
+│   ├── test_mapper.py
+│   ├── test_validator.py
+│   ├── test_generator.py
+│   └── test_integration.py
+├── data/
+│   ├── frameworks/
+│   │   ├── gri_2021.json           # GRI Standards 2021
+│   │   ├── ifrs_s1_2023.json       # IFRS S1 General Requirements
+│   │   ├── ifrs_s2_2023.json       # IFRS S2 Climate
+│   │   ├── tcfd_2021.json          # TCFD recommendations
+│   │   ├── sasb_2023.json          # SASB standards by sector
+│   │   └── esrs_2023.json          # European Sustainability Reporting
+│   └── taxonomies/
+│       ├── esrs_taxonomy.xml       # ESRS XBRL taxonomy
+│       ├── gri_taxonomy.xml        # GRI XBRL taxonomy
+│       └── ifrs_taxonomy.xml       # IFRS sustainability taxonomy
+├── examples/
+│   ├── input/
+│   │   └── sample_esg_report.pdf
+│   └── output/
+│       ├── sample_tagged.pdf
+│       ├── sample.xbrl
+│       ├── sample_data.json
+│       ├── sample_gri_index.xlsx
+│       ├── sample_gap_analysis.html
+│       └── sample_dashboard.html
+├── docs/
+│   ├── API.md
+│   ├── FRAMEWORKS.md
+│   └── XBRL_GUIDE.md
+├── config/
+│   ├── config.yaml
+│   └── frameworks_config.yaml
+├── requirements.txt
+├── setup.py
+├── README.md
+└── .env.example
+
+## DATA SCHEMAS
+================================================================================
+
+### 1. PDF Parsing Output (JSON)
+{
+  "document_info": {
+    "filename": "string",
+    "pages": "integer",
+    "file_size_mb": "float"
+  },
+  "metadata": {
+    "title": "string",
+    "author": "string",
+    "creation_date": "ISO8601",
+    "language": "string"
+  },
+  "elements": [
+    {
+      "id": "string (element_0, element_1, ...)",
+      "page": "integer",
+      "type": "string (text|image|table|chart)",
+      "bbox": [x, y, width, height],
+      "content": "string",
+      "font_info": {
+        "size": "float",
+        "name": "string",
+        "bold": "boolean",
+        "italic": "boolean"
+      },
+      "reading_order": "integer"
+    }
+  ]
+}
+
+### 2. ESG Analysis Output (JSON)
+{
+  "document_type": "string (esg_report|sustainability_report|annual_report)",
+  "reporting_period": {
+    "start": "YYYY-MM-DD",
+    "end": "YYYY-MM-DD"
+  },
+  "detected_frameworks": ["GRI", "IFRS", "TCFD"],
+  "structure": {
+    "sections": [
+      {
+        "title": "string",
+        "level": "integer (1-6)",
+        "start_element": "string (element_id)",
+        "end_element": "string (element_id)",
+        "subsections": []
+      }
+    ]
+  },
+  "esg_indicators": [
+    {
+      "indicator_id": "string (GRI-305-1, IFRS-S2.29a, etc.)",
+      "framework": "string (GRI|IFRS|TCFD|SASB|ESRS)",
+      "location": {
+        "element_id": "string",
+        "page": "integer",
+        "bbox": [x, y, w, h]
+      },
+      "confidence": "float (0.0-1.0)",
+      "disclosed": "boolean",
+      "completeness": "float (0.0-1.0)"
+    }
+  ],
+  "extracted_data": [
+    {
+      "metric": "string (scope_1_emissions, total_energy, etc.)",
+      "value": "float",
+      "unit": "string (tCO2eq, MWh, m3, etc.)",
+      "year": "integer",
+      "calculation_method": "string",
+      "location": "string (element_id)",
+      "verified": "boolean"
+    }
+  ]
+}
+
+### 3. Framework Mapping Output (JSON)
+{
+  "gri_mapping": {
+    "GRI-2-1": {
+      "name": "Organizational details",
+      "disclosed": "boolean",
+      "location": "string (element_id)",
+      "page": "integer",
+      "completeness": "float (0.0-1.0)",
+      "missing_requirements": ["string"]
+    }
+  },
+  "ifrs_mapping": {
+    "IFRS-S1-7": {
+      "requirement": "Governance",
+      "disclosed": "boolean",
+      "location": "string",
+      "page": "integer"
+    }
+  },
+  "tcfd_mapping": {
+    "TCFD-Governance-a": {
+      "pillar": "Governance",
+      "recommendation": "Board oversight",
+      "disclosed": "boolean",
+      "location": "string"
+    }
+  },
+  "xbrl_tags": [
+    {
+      "element_id": "string",
+      "xbrl_tag": "string (esrs-esg:DirectGHGEmissions)",
+      "context_ref": "string (2023-annual)",
+      "unit_ref": "string (tCO2eq)",
+      "value": "float",
+      "decimals": "integer"
+    }
+  ]
+}
+
+### 4. XBRL Instance Document (XML)
+<?xml version="1.0" encoding="UTF-8"?>
+<xbrl xmlns="http://www.xbrl.org/2003/instance"
+      xmlns:esrs-esg="http://xbrl.org/esrs/esg/2023"
+      xmlns:gri="http://xbrl.org/gri/2021"
+      xmlns:iso4217="http://www.xbrl.org/2003/iso4217">
+  
+  <context id="2023-annual">
+    <entity>
+      <identifier scheme="LEI">{company_lei}</identifier>
+    </entity>
+    <period>
+      <startDate>2023-01-01</startDate>
+      <endDate>2023-12-31</endDate>
+    </period>
+  </context>
+  
+  <unit id="tCO2eq">
+    <measure>esrs-esg:tCO2eq</measure>
+  </unit>
+  
+  <esrs-esg:DirectGHGEmissions 
+    contextRef="2023-annual" 
+    unitRef="tCO2eq" 
+    decimals="0">{value}</esrs-esg:DirectGHGEmissions>
+  
+  <!-- More facts... -->
+</xbrl>
+
+### 5. Structured ESG Data Output (JSON)
+{
+  "company": "string",
+  "report_period": "YYYY-MM-DD/YYYY-MM-DD",
+  "frameworks_applied": ["GRI", "IFRS", "TCFD"],
+  "esg_data": {
+    "environmental": {
+      "ghg_emissions": {
+        "scope_1": {"value": "float", "unit": "string", "verified": "boolean"},
+        "scope_2": {"value": "float", "unit": "string", "verified": "boolean"},
+        "scope_3": {"value": "float", "unit": "string", "verified": "boolean"},
+        "total": {"value": "float", "unit": "string"}
+      },
+      "energy": {
+        "total_consumption": {"value": "float", "unit": "MWh"},
+        "renewable_ratio": {"value": "float", "unit": "%"},
+        "sources": []
+      },
+      "water": {
+        "total_withdrawal": {"value": "float", "unit": "m3"},
+        "recycled_ratio": {"value": "float", "unit": "%"}
+      },
+      "waste": {
+        "total_generated": {"value": "float", "unit": "tons"},
+        "recycled_ratio": {"value": "float", "unit": "%"}
+      }
+    },
+    "social": {
+      "employees": {
+        "total": "integer",
+        "female_ratio": {"value": "float", "unit": "%"},
+        "new_hires": "integer",
+        "turnover_rate": {"value": "float", "unit": "%"}
+      },
+      "health_safety": {
+        "ltifr": "float",
+        "fatalities": "integer"
+      },
+      "diversity": {
+        "board_female_ratio": {"value": "float", "unit": "%"},
+        "management_female_ratio": {"value": "float", "unit": "%"}
+      }
+    },
+    "governance": {
+      "board": {
+        "size": "integer",
+        "independent_ratio": {"value": "float", "unit": "%"},
+        "meetings_per_year": "integer"
+      },
+      "ethics": {
+        "code_of_conduct": "boolean",
+        "whistleblower_mechanism": "boolean"
+      }
+    }
+  }
+}
+
+### 6. Gap Analysis Output (JSON)
+{
+  "summary": {
+    "total_indicators": "integer",
+    "disclosed": "integer",
+    "not_disclosed": "integer",
+    "partially_disclosed": "integer",
+    "disclosure_rate": "float (0.0-1.0)"
+  },
+  "by_framework": {
+    "GRI": {
+      "required": "integer",
+      "disclosed": "integer",
+      "rate": "float"
+    }
+  },
+  "missing_indicators": [
+    {
+      "indicator": "string (GRI-305-3)",
+      "framework": "string (GRI)",
+      "priority": "string (high|medium|low)",
+      "reason": "string",
+      "recommendation": "string"
+    }
+  ],
+  "benchmark": {
+    "company_score": "float",
+    "industry_average": "float",
+    "top_quartile": "float",
+    "ranking_percentile": "float"
+  }
+}
+
+## CORE MODULES SPECIFICATION
+================================================================================
+
+### MODULE 1: src/parser/pdf_parser.py
+================================================================================
+class PDFParser:
+    """
+    Parse PDF and extract structured content using PyMuPDF.
+    """
+    
+    def __init__(self, pdf_path: str):
+        """
+        Args:
+            pdf_path: Path to PDF file
+        """
+        pass
+    
+    def parse(self) -> Dict[str, Any]:
+        """
+        Main parsing method.
+        
+        Returns:
+            {
+                "document_info": {...},
+                "metadata": {...},
+                "elements": [...]
+            }
+        """
+        # 1. Open PDF with fitz (PyMuPDF)
+        # 2. Extract metadata
+        # 3. For each page:
+        #    - Extract text blocks with font info
+        #    - Extract images with bbox
+        #    - Detect table regions
+        # 4. Assign reading order (top-to-bottom, left-to-right)
+        # 5. Return structured data
+        pass
+    
+    def _extract_text_blocks(self, page) -> List[Dict]:
+        """Extract text blocks with font information."""
+        # Use page.get_text("dict") for detailed structure
+        # Extract: content, bbox, font_size, font_name, flags (bold/italic)
+        pass
+    
+    def _extract_images(self, page) -> List[Dict]:
+        """Extract images with bounding boxes."""
+        # Use page.get_images()
+        # Get image bbox from page.get_image_bbox()
+        pass
+    
+    def _detect_tables(self, page) -> List[Dict]:
+        """Detect table regions."""
+        # Use pdfplumber for table detection
+        # Alternative: analyze grid lines in PyMuPDF
+        pass
+
+### MODULE 2: src/analyzer/esg_analyzer.py
+================================================================================
+class ESGAnalyzer:
+    """
+    Analyze PDF content for ESG indicators using GPT-4.
+    """
+    
+    def __init__(self, openai_api_key: str):
+        self.client = OpenAI(api_key=openai_api_key)
+        self.knowledge_base = self._load_knowledge_base()
+    
+    def analyze(self, elements: List[Dict]) -> Dict[str, Any]:
+        """
+        Detect ESG indicators and frameworks.
+        
+        Args:
+            elements: Parsed PDF elements
+            
+        Returns:
+            ESG analysis output (see schema)
+        """
+        # 1. Identify document type
+        # 2. Detect reporting period
+        # 3. For each text block:
+        #    - Match against GRI indicators (keyword matching + GPT-4)
+        #    - Match against IFRS requirements
+        #    - Match against TCFD recommendations
+        #    - Extract quantitative data (numbers + units)
+        # 4. Calculate confidence scores
+        # 5. Return structured analysis
+        pass
+    
+    def _load_knowledge_base(self) -> Dict:
+        """Load ESG framework definitions from JSON files."""
+        # Load data/frameworks/*.json
+        # Structure: {indicator_id: {keywords, description, xbrl_tag, ...}}
+        pass
+    
+    def _match_gri_indicator(self, text: str) -> List[Tuple[str, float]]:
+        """
+        Match text to GRI indicators.
+        
+        Returns:
+            [(indicator_id, confidence), ...]
+        """
+        # Method 1: Keyword matching
+        keywords = {
+            "GRI-305-1": ["scope 1", "direct emissions", "ghg"],
+            "GRI-305-2": ["scope 2", "indirect emissions"],
+        }
+        
+        # Method 2: GPT-4 semantic matching
+        prompt = f"""
+        Determine which GRI indicators this text discusses:
+        
+        Text: {text}
+        
+        Possible indicators:
+        - GRI 305-1: Direct (Scope 1) GHG emissions
+        - GRI 305-2: Energy indirect (Scope 2) GHG emissions
+        ...
+        
+        Return JSON: [{{"indicator": "GRI-305-1", "confidence": 0.95}}]
+        """
+        
+        # Combine results
+        pass
+    
+    def _extract_quantitative_data(self, text: str) -> List[Dict]:
+        """
+        Extract ESG metrics with values and units.
+        
+        Example: "2023년 Scope 1 배출량: 1,234 tCO2eq"
+        Returns: {
+            "metric": "scope_1_emissions",
+            "value": 1234.0,
+            "unit": "tCO2eq",
+            "year": 2023
+        }
+        """
+        # Use regex + GPT-4 for complex cases
+        # Normalize units (tons CO2 → tCO2eq)
+        pass
+
+### MODULE 3: src/mapper/framework_mapper.py
+================================================================================
+class FrameworkMapper:
+    """
+    Map PDF content to ESG frameworks (GRI, IFRS, TCFD, SASB, ESRS).
+    """
+    
+    def __init__(self, knowledge_base: Dict):
+        self.gri = knowledge_base["gri"]
+        self.ifrs = knowledge_base["ifrs"]
+        self.tcfd = knowledge_base["tcfd"]
+        self.sasb = knowledge_base["sasb"]
+        self.esrs = knowledge_base["esrs"]
+    
+    def map_all(
+        self, 
+        esg_analysis: Dict
+    ) -> Dict[str, Any]:
+        """
+        Map to all frameworks.
+        
+        Returns:
+            Framework mapping output (see schema)
+        """
+        return {
+            "gri_mapping": self.map_gri(esg_analysis),
+            "ifrs_mapping": self.map_ifrs(esg_analysis),
+            "tcfd_mapping": self.map_tcfd(esg_analysis),
+            "sasb_mapping": self.map_sasb(esg_analysis),
+            "esrs_mapping": self.map_esrs(esg_analysis)
+        }
+    
+    def map_gri(self, analysis: Dict) -> Dict:
+        """Map to GRI Universal Standards."""
+        # Check each GRI indicator (GRI 2-1 to GRI 3-3, plus topic standards)
+        # Determine: disclosed, location, completeness
+        pass
+    
+    def map_ifrs(self, analysis: Dict) -> Dict:
+        """Map to IFRS S1 and S2."""
+        # S1: General requirements (governance, strategy, risk, metrics)
+        # S2: Climate-specific disclosures
+        pass
+    
+    def calculate_completeness(
+        self, 
+        indicator: str,
+        location: str,
+        analysis: Dict
+    ) -> float:
+        """
+        Calculate disclosure completeness (0.0-1.0).
+        
+        Example: GRI 305-1 requires:
+        - Gross direct GHG emissions (required)
+        - Gases included (required)
+        - Biogenic CO2 emissions (required)
+        - Base year (required)
+        - Calculation approach (required)
+        
+        If 4/5 present → completeness = 0.8
+        """
+        pass
+
+### MODULE 4: src/mapper/xbrl_tagger.py
+================================================================================
+class XBRLTagger:
+    """
+    Assign XBRL tags to ESG data points.
+    """
+    
+    def __init__(self, taxonomy_path: str):
+        """
+        Args:
+            taxonomy_path: Path to XBRL taxonomy XML
+        """
+        self.taxonomy = self._load_taxonomy(taxonomy_path)
+    
+    def tag(self, extracted_data: List[Dict]) -> List[Dict]:
+        """
+        Assign XBRL tags.
+        
+        Args:
+            extracted_data: ESG metrics with values
+            
+        Returns:
+            [
+                {
+                    "element_id": "...",
+                    "xbrl_tag": "esrs-esg:DirectGHGEmissions",
+                    "context_ref": "2023-annual",
+                    "unit_ref": "tCO2eq",
+                    "value": 1234.0,
+                    "decimals": 0
+                }
+            ]
+        """
+        # Map metric names to XBRL tags
+        mapping = {
+            "scope_1_emissions": "esrs-esg:DirectGHGEmissions",
+            "scope_2_emissions": "esrs-esg:IndirectGHGEmissions",
+            "total_energy": "esrs-esg:TotalEnergyConsumption",
+        }
+        
+        # For each data point:
+        # 1. Find matching XBRL tag
+        # 2. Determine context (reporting period)
+        # 3. Determine unit
+        # 4. Set decimals (precision)
+        pass
+    
+    def _load_taxonomy(self, path: str) -> Dict:
+        """Load XBRL taxonomy definition."""
+        # Parse XML taxonomy
+        # Extract: tag name, data type, unit, definition
+        pass
+
+### MODULE 5: src/validator/esg_data_validator.py
+================================================================================
+class ESGDataValidator:
+    """
+    Validate extracted ESG data for consistency and accuracy.
+    """
+    
+    def validate(self, esg_data: Dict) -> Dict:
+        """
+        Validate ESG data.
+        
+        Returns:
+            {
+                "passed": int,
+                "warnings": int,
+                "errors": int,
+                "issues": [...]
+            }
+        """
+        issues = []
+        
+        # 1. Unit consistency
+        issues.extend(self._check_units(esg_data))
+        
+        # 2. Calculation verification
+        issues.extend(self._check_calculations(esg_data))
+        
+        # 3. Range validation
+        issues.extend(self._check_ranges(esg_data))
+        
+        # 4. Period consistency
+        issues.extend(self._check_periods(esg_data))
+        
+        # 5. Required fields
+        issues.extend(self._check_required_fields(esg_data))
+        
+        return self._compile_results(issues)
+    
+    def _check_calculations(self, data: Dict) -> List[Dict]:
+        """Verify mathematical relationships."""
+        issues = []
+        
+        # Example: Scope 1 + 2 + 3 = Total
+        scope_1 = data.get("scope_1_emissions", {}).get("value", 0)
+        scope_2 = data.get("scope_2_emissions", {}).get("value", 0)
+        scope_3 = data.get("scope_3_emissions", {}).get("value", 0)
+        total = data.get("total_emissions", {}).get("value", 0)
+        
+        calculated = scope_1 + scope_2 + scope_3
+        if abs(calculated - total) > 0.01 * total:  # 1% tolerance
+            issues.append({
+                "severity": "error",
+                "type": "calculation_mismatch",
+                "message": f"Scope 1+2+3 ({calculated}) ≠ Total ({total})"
+            })
+        
+        return issues
+    
+    def _check_ranges(self, data: Dict) -> List[Dict]:
+        """Validate values are in acceptable ranges."""
+        issues = []
+        
+        # Example: Percentages should be 0-100
+        for key, value_dict in data.items():
+            if value_dict.get("unit") == "%":
+                value = value_dict.get("value", 0)
+                if not (0 <= value <= 100):
+                    issues.append({
+                        "severity": "error",
+                        "type": "range_violation",
+                        "message": f"{key} = {value}% (must be 0-100%)"
+                    })
+        
+        return issues
+
+### MODULE 6: src/generator/xbrl_generator.py
+================================================================================
+class XBRLGenerator:
+    """
+    Generate XBRL instance document from tagged data.
+    """
+    
+    def generate(
+        self,
+        xbrl_tags: List[Dict],
+        company_info: Dict,
+        output_path: str
+    ) -> str:
+        """
+        Generate XBRL file.
+        
+        Args:
+            xbrl_tags: XBRL tagged data
+            company_info: {lei, name, period_start, period_end}
+            output_path: Output file path
+            
+        Returns:
+            Path to generated XBRL file
+        """
+        # 1. Create root element
+        root = ET.Element(
+            "xbrl",
+            nsmap={
+                None: "http://www.xbrl.org/2003/instance",
+                "esrs-esg": "http://xbrl.org/esrs/esg/2023",
+                "gri": "http://xbrl.org/gri/2021",
+                "iso4217": "http://www.xbrl.org/2003/iso4217"
+            }
+        )
+        
+        # 2. Add context
+        context = ET.SubElement(root, "context", id="2023-annual")
+        entity = ET.SubElement(context, "entity")
+        identifier = ET.SubElement(
+            entity, 
+            "identifier", 
+            scheme="LEI"
+        )
+        identifier.text = company_info["lei"]
+        
+        period = ET.SubElement(context, "period")
+        ET.SubElement(period, "startDate").text = company_info["period_start"]
+        ET.SubElement(period, "endDate").text = company_info["period_end"]
+        
+        # 3. Add units
+        units = set(tag["unit_ref"] for tag in xbrl_tags)
+        for unit_id in units:
+            unit_elem = ET.SubElement(root, "unit", id=unit_id)
+            measure = ET.SubElement(unit_elem, "measure")
+            measure.text = f"esrs-esg:{unit_id}"
+        
+        # 4. Add facts
+        for tag in xbrl_tags:
+            fact = ET.SubElement(
+                root,
+                tag["xbrl_tag"],
+                contextRef=tag["context_ref"],
+                unitRef=tag["unit_ref"],
+                decimals=str(tag["decimals"])
+            )
+            fact.text = str(tag["value"])
+        
+        # 5. Write to file
+        tree = ET.ElementTree(root)
+        ET.indent(tree, space="  ")
+        tree.write(
+            output_path,
+            encoding="UTF-8",
+            xml_declaration=True,
+            pretty_print=True
+        )
+        
+        return output_path
+    
+    def validate_schema(self, xbrl_path: str) -> bool:
+        """Validate XBRL against schema."""
+        # Use lxml schema validation
+        # Load XBRL schema from taxonomy
+        # Validate instance document
+        pass
+
+### MODULE 7: src/generator/excel_generator.py
+================================================================================
+class ExcelGenerator:
+    """
+    Generate GRI content index Excel file.
+    """
+    
+    def generate(
+        self,
+        gri_mapping: Dict,
+        output_path: str
+    ) -> str:
+        """
+        Generate Excel with GRI index.
+        
+        Columns:
+        - GRI Indicator
+        - Disclosed (Yes/No/Partial)
+        - Page Number
+        - Completeness (%)
+        - Notes
+        """
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "GRI Content Index"
+        
+        # Header
+        headers = [
+            "GRI Indicator",
+            "Name",
+            "Disclosed",
+            "Page",
+            "Completeness",
+            "Notes"
+        ]
+        for col, header in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=col)
+            cell.value = header
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill(
+                start_color="366092",
+                end_color="366092",
+                fill_type="solid"
+            )
+        
+        # Data rows
+        row = 2
+        for indicator_id, data in sorted(gri_mapping.items()):
+            ws.cell(row, 1).value = indicator_id
+            ws.cell(row, 2).value = data["name"]
+            
+            # Disclosed status
+            if data["disclosed"]:
+                if data["completeness"] >= 1.0:
+                    status = "✅ Yes"
+                else:
+                    status = "⚠️ Partial"
+            else:
+                status = "❌ No"
+            ws.cell(row, 3).value = status
+            
+            ws.cell(row, 4).value = data.get("page", "N/A")
+            ws.cell(row, 5).value = f"{data['completeness']*100:.0f}%"
+            
+            notes = ", ".join(data.get("missing_requirements", []))
+            ws.cell(row, 6).value = notes
+            
+            row += 1
+        
+        # Auto-adjust column widths
+        for column in ws.columns:
+            max_length = max(len(str(cell.value)) for cell in column)
+            ws.column_dimensions[column[0].column_letter].width = min(
+                max_length + 2, 
+                50
+            )
+        
+        wb.save(output_path)
+        return output_path
+
+### MODULE 8: src/generator/html_generator.py
+================================================================================
+class HTMLGenerator:
+    """
+    Generate gap analysis and dashboard HTML files.
+    """
+    
+    def generate_gap_analysis(
+        self,
+        gap_data: Dict,
+        output_path: str
+    ) -> str:
+        """Generate gap analysis report HTML."""
+        
+        html_template = """
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>ESG 공시 갭 분석</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 40px; }
+        h1 { color: #2c3e50; }
+        .summary { background: #ecf0f1; padding: 20px; border-radius: 8px; }
+        .progress-bar { 
+            width: 100%; 
+            height: 30px; 
+            background: #ddd; 
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        .progress-fill { 
+            height: 100%; 
+            background: linear-gradient(90deg, #27ae60, #2ecc71);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 20px 0;
+        }
+        th, td { 
+            padding: 12px; 
+            text-align: left; 
+            border-bottom: 1px solid #ddd; 
+        }
+        th { background: #3498db; color: white; }
+        .high-priority { color: #e74c3c; font-weight: bold; }
+        .medium-priority { color: #f39c12; }
+        .low-priority { color: #95a5a6; }
+    </style>
+</head>
+<body>
+    <h1>ESG 공시 갭 분석 리포트</h1>
+    
+    <div class="summary">
+        <h2>전체 요약</h2>
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {disclosure_rate}%;">
+                {disclosure_rate}% 완성
+            </div>
+        </div>
+        <p>공시된 지표: {disclosed}/{total} ({disclosure_rate}%)</p>
+        <p>미공시 지표: {not_disclosed}</p>
+    </div>
+    
+    <h2>프레임워크별 분석</h2>
+    <table>
+        <tr>
+            <th>프레임워크</th>
+            <th>필수 지표</th>
+            <th>공시된 지표</th>
+            <th>공시율</th>
+        </tr>
+        {framework_rows}
+    </table>
+    
+    <h2>미공시 지표 (우선순위별)</h2>
+    {missing_indicators_html}
+</body>
+</html>
+        """
+        
+        # Fill template with data
+        # Write to file
+        pass
+    
+    def generate_dashboard(
+        self,
+        esg_data: Dict,
+        output_path: str
+    ) -> str:
+        """Generate interactive dashboard HTML."""
+        
+        # Use Chart.js for visualizations
+        # Include:
+        # - GHG emissions trend chart
+        # - Framework coverage radar chart
+        # - Key metrics cards
+        # - Interactive filters
+        # - Link to original PDF
+        pass
+
+### MODULE 9: src/main.py (CLI & Pipeline)
+================================================================================
+import click
+from typing import Dict, Any
+
+class ESGPDFPipeline:
+    """Main processing pipeline."""
+    
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+        
+        # Initialize components
+        self.parser = PDFParser()
+        self.esg_analyzer = ESGAnalyzer(config["openai_api_key"])
+        self.framework_mapper = FrameworkMapper(config["knowledge_base"])
+        self.xbrl_tagger = XBRLTagger(config["xbrl_taxonomy"])
+        self.esg_validator = ESGDataValidator()
+        
+        # Generators
+        self.pdf_gen = PDFGenerator()
+        self.xbrl_gen = XBRLGenerator()
+        self.json_gen = JSONGenerator()
+        self.excel_gen = ExcelGenerator()
+        self.html_gen = HTMLGenerator()
+    
+    def process(
+        self,
+        input_pdf: str,
+        output_dir: str
+    ) -> Dict[str, Any]:
+        """
+        Main processing pipeline.
+        
+        Returns:
+            {
+                "status": "success"|"error",
+                "output_files": {...},
+                "summary": {...}
+            }
+        """
+        # Step 1: Parse PDF
+        logger.info("[1/6] Parsing PDF...")
+        parsed = self.parser.parse(input_pdf)
+        
+        # Step 2: ESG Analysis
+        logger.info("[2/6] Analyzing ESG content...")
+        esg_analysis = self.esg_analyzer.analyze(parsed["elements"])
+        
+        # Step 3: Framework Mapping
+        logger.info("[3/6] Mapping to ESG frameworks...")
+        mapping = self.framework_mapper.map_all(esg_analysis)
+        
+        # Step 4: XBRL Tagging
+        logger.info("[4/6] Assigning XBRL tags...")
+        xbrl_tags = self.xbrl_tagger.tag(
+            esg_analysis["extracted_data"]
+        )
+        
+        # Step 5: Validation
+        logger.info("[5/6] Validating data...")
+        validation = self.esg_validator.validate(
+            esg_analysis["esg_data"]
+        )
+        
+        # Step 6: Generate Outputs
+        logger.info("[6/6] Generating outputs...")
+        outputs = self._generate_all_outputs(
+            parsed,
+            esg_analysis,
+            mapping,
+            xbrl_tags,
+            validation,
+            output_dir
+        )
+        
+        return {
+            "status": "success",
+            "output_files": outputs,
+            "summary": self._create_summary(esg_analysis, mapping)
+        }
+    
+    def _generate_all_outputs(self, *args, output_dir) -> Dict[str, str]:
+        """Generate all output files."""
+        base_name = Path(input_pdf).stem
+        
+        return {
+            "tagged_pdf": self.pdf_gen.generate(...),
+            "xbrl": self.xbrl_gen.generate(...),
+            "json": self.json_gen.generate(...),
+            "excel": self.excel_gen.generate(...),
+            "gap_analysis": self.html_gen.generate_gap_analysis(...),
+            "dashboard": self.html_gen.generate_dashboard(...)
+        }
+
+@click.command()
+@click.argument("input_pdf", type=click.Path(exists=True))
+@click.option("--output-dir", "-o", default="./output", help="Output directory")
+@click.option("--frameworks", default="GRI,IFRS,TCFD", help="Frameworks to apply")
+@click.option("--language", default="ko", help="Report language")
+@click.option("--config", type=click.Path(), help="Config file path")
+def main(input_pdf, output_dir, frameworks, language, config):
+    """
+    ESG PDF Auto-Tagger CLI
+    
+    Example:
+        esg-analyzer input.pdf -o ./results --frameworks GRI,IFRS,TCFD
+    """
+    # Load config
+    # Initialize pipeline
+    # Process
+    # Display results
+    pass
+
+if __name__ == "__main__":
+    main()
+
+## OUTPUT FILES SPECIFICATION
+================================================================================
+
+### 1. {basename}_tagged.pdf
+- Tagged PDF with XML structure tree
+- WCAG 2.1 AA compliant
+- ESG indicator bookmarks
+- Embedded GRI content index
+- Tooltips on data points with framework mappings
+
+### 2. {basename}.xbrl
+- XBRL instance document
+- ESRS/GRI/IFRS taxonomies
+- All quantitative ESG data points
+- Proper contexts and units
+- Schema-validated
+
+### 3. {basename}_data.json
+- Complete structured ESG data
+- Environmental, Social, Governance sections
+- All extracted metrics with units
+- Framework mappings
+- See "Structured ESG Data Output" schema
+
+### 4. {basename}_gri_index.xlsx
+- Excel workbook with GRI content index
+- Columns: Indicator, Name, Disclosed, Page, Completeness, Notes
+- Color-coded (green=complete, yellow=partial, red=missing)
+- Sortable and filterable
+- Hyperlinks to PDF pages (if possible)
+
+### 5. {basename}_gap_analysis.html
+- Interactive gap analysis report
+- Disclosure rate by framework
+- Missing indicators prioritized (high/medium/low)
+- Industry benchmark comparison
+- Improvement roadmap
+- Charts: progress bars, tables
+
+### 6. {basename}_dashboard.html
+- Interactive HTML dashboard
+- Charts: GHG emissions trend, framework coverage radar, key metrics
+- Filters: by framework, by year, by metric type
+- PDF viewer integration (click chart → jump to PDF page)
+- Export buttons (JSON, CSV, PNG)
+- Requires: Chart.js, PDF.js libraries (CDN)
+
+### 7. {basename}_validation.json
+- Validation report
+- Passed/warnings/errors counts
+- Detailed issues list with locations
+- Recommendations for improvement
+
+## TESTING REQUIREMENTS
+================================================================================
+
+### Unit Tests
+- test_parser.py: PDF parsing accuracy
+- test_analyzer.py: ESG indicator detection
+- test_mapper.py: Framework mapping correctness
+- test_validator.py: Validation rules
+- test_generator.py: Output generation
+
+### Integration Tests
+- test_integration.py: Full pipeline with sample PDFs
+- Test cases: 
+  - Simple ESG report (30 pages)
+  - Complex ESG report (150 pages)
+  - Report with tables and charts
+  - Multi-language report
+  - Corrupted/encrypted PDF (error handling)
+
+### Coverage Target
+- Minimum: 80%
+- Critical modules (parser, analyzer, mapper): 90%+
+
+### Performance Benchmarks
+- 10-page PDF: < 1 minute
+- 50-page PDF: < 3 minutes
+- 150-page PDF: < 10 minutes
+
+## CONFIGURATION
+================================================================================
+
+### config.yaml
+```yaml
+openai:
+  api_key: ${OPENAI_API_KEY}
+  model: gpt-4-turbo-preview
+  max_tokens: 4000
+  temperature: 0.1
+
+parser:
+  extract_images: true
+  extract_tables: true
+  min_font_size: 6
+  ocr_enabled: true
+
+analyzer:
+  confidence_threshold: 0.7
+  enable_ai_analysis: true
+  enable_keyword_matching: true
+  cache_enabled: true
+
+frameworks:
+  enabled: [GRI, IFRS, TCFD, SASB, ESRS]
+  gri_version: "2021"
+  ifrs_version: "2023"
+
+xbrl:
+  taxonomy_dir: ./data/taxonomies
+  default_taxonomy: esrs-esg
+
+validator:
+  strict_mode: false
+  unit_normalization: true
+  calculation_tolerance: 0.01
+
+output:
+  tagged_pdf: true
+  xbrl: true
+  json: true
+  excel: true
+  gap_analysis: true
+  dashboard: true
+```
+
+### frameworks_config.yaml
+```yaml
+gri:
+  source: ./data/frameworks/gri_2021.json
+  universal_standards: [2, 3]
+  topic_standards: [200, 300, 400]
+  
+ifrs:
+  source: ./data/frameworks/ifrs_s1_2023.json
+  s1_requirements: 53
+  s2_requirements: 67
+
+tcfd:
+  source: ./data/frameworks/tcfd_2021.json
+  pillars: [Governance, Strategy, Risk, Metrics]
+
+xbrl_mappings:
+  scope_1_emissions: esrs-esg:DirectGHGEmissions
+  scope_2_emissions: esrs-esg:IndirectGHGEmissions
+  total_energy: esrs-esg:TotalEnergyConsumption
+  # ... more mappings
+```
+
+## KNOWLEDGE BASE FILES
+================================================================================
+
+### data/frameworks/gri_2021.json
+```json
+{
+  "GRI-2-1": {
+    "code": "GRI 2-1",
+    "name": "Organizational details",
+    "description": "Report the name, nature of ownership, legal form, location of headquarters, countries of operation.",
+    "type": "universal",
+    "category": "organizational_profile",
+    "keywords": [
+      "organization", "company name", "legal form", "headquarters",
+      "조직", "회사명", "법적형태", "본사"
+    ],
+    "required_disclosures": [
+      "name",
+      "nature_of_ownership",
+      "legal_form",
+      "headquarters_location",
+      "countries_of_operation"
+    ],
+    "xbrl_tag": "gri:OrganizationalDetails",
+    "related_indicators": ["GRI 2-2", "GRI 2-6"]
+  },
+  "GRI-305-1": {
+    "code": "GRI 305-1",
+    "name": "Direct (Scope 1) GHG emissions",
+    "description": "Gross direct (Scope 1) GHG emissions in metric tons of CO2 equivalent.",
+    "type": "topic",
+    "category": "emissions",
+    "keywords": [
+      "scope 1", "direct emissions", "ghg", "greenhouse gas",
+      "스코프 1", "직접 배출", "온실가스"
+    ],
+    "required_disclosures": [
+      "gross_direct_ghg_emissions",
+      "gases_included",
+      "biogenic_co2_emissions",
+      "base_year",
+      "source_of_emission_factors",
+      "consolidation_approach",
+      "standards_used"
+    ],
+    "unit": "tCO2eq",
+    "xbrl_tag": "esrs-esg:DirectGHGEmissions",
+    "ifrs_mapping": "IFRS S2.29(a)(i)",
+    "related_indicators": ["GRI 305-2", "GRI 305-3", "GRI 305-4"]
+  }
+}
+```
+
+### data/frameworks/ifrs_s2_2023.json
+```json
+{
+  "IFRS-S2-29a": {
+    "code": "IFRS S2.29(a)",
+    "requirement": "Disclose Scope 1, 2, and 3 GHG emissions",
+    "description": "Absolute gross GHG emissions in metric tonnes of CO2 equivalent.",
+    "pillars": ["Metrics and targets"],
+    "sub_requirements": [
+      "IFRS S2.29(a)(i): Scope 1 emissions",
+      "IFRS S2.29(a)(ii): Scope 2 emissions",
+      "IFRS S2.29(a)(iii): Scope 3 emissions"
+    ],
+    "gri_equivalent": ["GRI 305-1", "GRI 305-2", "GRI 305-3"],
+    "xbrl_tags": [
+      "esrs-esg:DirectGHGEmissions",
+      "esrs-esg:IndirectGHGEmissions",
+      "esrs-esg:OtherIndirectGHGEmissions"
+    ]
+  }
+}
+```
+
+## IMPLEMENTATION NOTES
+================================================================================
+
+### Priority Order
+1. PDF parsing + basic structure analysis (Week 1-2)
+2. ESG indicator detection + GRI mapping (Week 3-4)
+3. XBRL tagging + validation (Week 5)
+4. Output generation (Week 6)
+5. IFRS/TCFD/SASB/ESRS mapping (Week 7-8)
+6. Web interface (Optional, Week 9+)
+
+### AI Prompts Strategy
+Use GPT-4 Turbo with specialized prompts:
+
+1. Structure Analysis Prompt:
+   "Analyze this sustainability report section. Identify document type, sections, ESG indicators discussed. Output JSON."
+
+2. Indicator Matching Prompt:
+   "Match this text to GRI/IFRS indicators. Text: {text}. Output: [{indicator: '...', confidence: 0.0-1.0}]"
+
+3. Data Extraction Prompt:
+   "Extract ESG metrics from: {text}. Find: metric name, value, unit, year, calculation method. Output JSON."
+
+4. Completeness Check Prompt:
+   "GRI 305-1 requires: [list]. Text: {text}. Which requirements are met? Output: {requirement: boolean}."
+
+### Caching Strategy
+- Cache GPT-4 responses (by text hash)
+- Cache framework mappings
+- Use Redis or local JSON cache
+- TTL: 7 days for analysis results
+
+### Error Handling
+- Graceful degradation: If GPT-4 fails, fall back to keyword matching
+- Retry logic: Exponential backoff for API calls
+- Partial results: Continue processing even if some pages fail
+- Detailed logging: Track every decision and confidence score
+
+### Performance Optimization
+- Parallel processing: Analyze multiple pages concurrently
+- Batch API calls: Group similar analyses
+- Lazy loading: Load frameworks only when needed
+- Incremental output: Save results progressively
+
+================================================================================
+END OF SPECIFICATION
+================================================================================
